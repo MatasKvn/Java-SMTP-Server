@@ -3,14 +3,18 @@ package org.mataskvn.smtp.server;
 import java.io.*;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
-import java.util.LinkedList;
 
 public class SMTPConnectionHandler implements Runnable {
     private Socket socket;
-    BufferedReader reader;
-    BufferedWriter writer;
+    private BufferedReader reader;
+    private BufferedWriter writer;
+    private SMTPServer parent;
+
 
     @Override
     public void run() {
@@ -21,8 +25,9 @@ public class SMTPConnectionHandler implements Runnable {
         }
     }
 
-    public SMTPConnectionHandler(Socket socket) throws IOException {
+    public SMTPConnectionHandler(Socket socket, SMTPServer parent) throws IOException {
         this.socket = socket;
+        this.parent = parent;
         reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
     }
@@ -32,7 +37,7 @@ public class SMTPConnectionHandler implements Runnable {
 
         String input = "";
 
-        MailConstructor mailConstructor = new MailConstructor();
+        MailObject mailObject = new MailObject();
 
         while (true)
         {
@@ -43,19 +48,19 @@ public class SMTPConnectionHandler implements Runnable {
                 System.out.println("Not implemented");
 
             else if (input.matches("(?i)^\\s*HELO\\s?.*")) {
-                if (mailConstructor.hasHello()) {
+                if (mailObject.hasHello()) {
                     sendLine("XXX Error: HELO has been already sent");
                     continue;
                 }
                 try {
-                    mailConstructor.addHelo(input.split("\s+")[1]);
+                    mailObject.addHelo(input.split("\s+")[1]);
                     sendLine("250 " + InetAddress.getLocalHost().getHostName());
                 } catch (Exception e) {
                     sendLine("501 Syntax: HELO identity");
                 }
             }
             else if (input.matches("(?i)^\\s*MAIL\\s?.*")) {
-                if (!mailConstructor.hasHello()) {
+                if (!mailObject.hasHello()) {
                     sendLine("503 Error: send HELO first");
                     continue;
                 }
@@ -64,7 +69,7 @@ public class SMTPConnectionHandler implements Runnable {
                     continue;
                 }
                 try {
-                    mailConstructor.addSender(input.split(":\s*")[1]);
+                    mailObject.addSender(input.split(":\s*")[1]);
                     sendLine("250 OK");
                 } catch (Exception e) {
                     sendLine("501 Syntax: MAIL FROM: <address>");
@@ -72,7 +77,7 @@ public class SMTPConnectionHandler implements Runnable {
 
             }
             else if (input.matches("(?i)^\\s*RCPT\\s?.*")) {
-                if (!mailConstructor.hasSender()) {
+                if (!mailObject.hasSender()) {
                     sendLine("503 Error: need MAIL first");
                     continue;
                 }
@@ -81,7 +86,7 @@ public class SMTPConnectionHandler implements Runnable {
                     continue;
                 }
                 try {
-                    mailConstructor.addRecipient(input.split(":\s*")[1]);
+                    mailObject.addRecipient(input.split(":\s*")[1]);
                     sendLine("250 OK");
                 } catch (Exception e) {
                     sendLine("501 Syntax: RCPT TO: <address>");
@@ -89,23 +94,32 @@ public class SMTPConnectionHandler implements Runnable {
 
             }
             else if (input.matches("(?i)^\\s*DATA\\s?.*")) { // DATA
-                if (!mailConstructor.hasRecipients()) {
+                if (!mailObject.hasRecipients()) {
                     sendLine("503 Error: need RCPT command");
                     continue;
                 }
                 sendLine("354 End data with <CR><LF>.<CR><LF>");
 
-                readAndAddData(mailConstructor);
+                readAndAddData(mailObject);
+                String timeWhenReceived = new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime());
+                String emailPath = parent.getStorageDirectory() + "/" + timeWhenReceived;
+
                 sendLine("250 OK");
-                StringBuilder dataBuilder = mailConstructor.getDataBuilder().deleteCharAt(mailConstructor.getDataBuilder().length()-1);
+                StringBuilder dataBuilder = mailObject.getDataBuilder().deleteCharAt(mailObject.getDataBuilder().length()-1);
                 String data = dataBuilder.toString();
-                File file = new File(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()) + ".eml");
+
+                Path dir = Paths.get(emailPath);
+                if (!Files.exists(dir))
+                    Files.createDirectory(dir);
+
+                mailObject.saveContanedFiles(emailPath);
+                File file = new File(emailPath + "/email.eml");
                 FileWriter fileWriter = new FileWriter(file);
                 fileWriter.write(data);
                 fileWriter.close();
 
             } else if (input.matches("(?i)^\\s*RSET\\s?")) {
-                mailConstructor = new MailConstructor();
+                mailObject = new MailObject();
                 sendLine("250 OK");
             }
             else if (input.matches("(?i)^\\s*NOOP\\s?")) {
@@ -118,13 +132,15 @@ public class SMTPConnectionHandler implements Runnable {
                 break;
             else
                 sendLine("500 Error: command \"" + input + "\" not recognized");
-
         }
 
-
-        closeEverything(writer, reader, socket);
+        close();
     }
 
+    public void close() throws IOException {
+        closeEverything(writer, reader, socket);
+        parent.getHandlers().remove(this);
+    }
 
     private void sendLine(String str) throws IOException {
         writer.write(str);
@@ -138,28 +154,23 @@ public class SMTPConnectionHandler implements Runnable {
     }
 
 
-    private void readAndAddData(MailConstructor mailConstructor) throws IOException {
-        LinkedList<String> latestInput = new LinkedList<>();
-        String input = reader.readLine();
-        latestInput.add(input);
-        mailConstructor.addData(input);
+
+    private void readAndAddData(MailObject mailObject) throws IOException {
+        String input = "";
+        mailObject.addData(input);
 
         while (!input.matches("(?i)^\\s*QUIT\\s?")) {
             input = reader.readLine();
             System.out.println(input);
-            latestInput.add(input);
 
-            if (latestInput.size() > 2)
-                latestInput.removeFirst();
-            System.out.println(latestInput);
-
-            if (latestInput.getFirst().equals("") && latestInput.getLast().equals(".")
-                    || latestInput.getFirst().startsWith("---------") && latestInput.getLast().equals("."))
+            if (input.equals("."))
                 break;
 
-            mailConstructor.addData(input);
+            mailObject.addData(input);
         }
     }
+
+
 }
 
 
