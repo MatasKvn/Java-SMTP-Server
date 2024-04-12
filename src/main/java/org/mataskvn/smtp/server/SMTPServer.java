@@ -11,8 +11,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 
-public class SMTPServer extends Thread
+public class SMTPServer implements Runnable
 {
     private ServerSocket serverSocket;
     private List<SMTPConnectionHandler> handlers = new LinkedList<>();
@@ -22,8 +24,15 @@ public class SMTPServer extends Thread
 
     private int port;
 
+    public Consumer<MailObject> getOnReceiveEmail() {
+        return onReceiveEmail;
+    }
 
-    private String storageDirectory;
+    public void setOnReceiveEmail(Consumer<MailObject> onReceiveEmail) {
+        this.onReceiveEmail = onReceiveEmail;
+    }
+
+    private Consumer<MailObject> onReceiveEmail = (MailObject mailObject) -> System.out.println("Received data.");
 
     public String getGreetingMessage() {
         return greetingMessage;
@@ -34,27 +43,20 @@ public class SMTPServer extends Thread
     }
 
     private String greetingMessage = InetAddress.getLocalHost().getHostName() + " Connection Sucessful.";
-    public String getStorageDirectory() {
-        return storageDirectory;
-    }
 
     private boolean shouldClose = false;
 
     /**
      * Construct a SMTP server
      * @param port - the port for the server to run on
-     * @param storageDirectory - the directory for the SMTP server to store .eml and attached files (null for this directory)
+     * @param
      */
-    public SMTPServer(int port, String storageDirectory) throws UnknownHostException {
+    public SMTPServer(int port) throws UnknownHostException {
         this.port = port;
-        this.storageDirectory = storageDirectory == null ? "" : storageDirectory;
     }
 
-    private void startServer() throws IOException {
+    private void init() throws IOException {
         serverSocket = new ServerSocket(port);
-        Path dir = Paths.get(storageDirectory);
-        if (!Files.exists(dir))
-            Files.createDirectory(dir);
 
         while (!shouldClose)
         {
@@ -77,11 +79,14 @@ public class SMTPServer extends Thread
 
     public void run() {
         try {
-            startServer();
+            init();
         } catch (IOException e) {
             System.err.println("Unable to start SMTP server!");
             e.printStackTrace();
         }
+    }
+    public void start() {
+        new Thread(this).start();
     }
 
 

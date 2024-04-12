@@ -54,6 +54,7 @@ public class MailObject {
     public StringBuilder getDataBuilder() {
         return data;
     }
+    public String getData() { return data.toString(); }
 
 
     public static void main(String[] args){
@@ -87,17 +88,17 @@ public class MailObject {
 
     }
 
-    public void saveContanedFiles(String directory) throws IOException{
-
-        Map<String, String> fileInfo = extractFileInfo();
-        if (fileInfo == null)
-            return;
-        for (Map.Entry<String, String> entry : fileInfo.entrySet()) {
-            FileWriter fileWriter = new FileWriter(new File(directory +"/" + entry.getKey()));
-            fileWriter.write(entry.getValue());
-            fileWriter.close();
-        }
-    }
+//    public void saveContanedFiles(String directory) throws IOException{
+//
+//        Map<String, String> fileInfo = extractFileInfo();
+//        if (fileInfo == null)
+//            return;
+//        for (Map.Entry<String, String> entry : fileInfo.entrySet()) {
+//            FileWriter fileWriter = new FileWriter(new File(directory + "/" + entry.getKey()));
+//            fileWriter.write(entry.getValue());
+//            fileWriter.close();
+//        }
+//    }
 
 
     public Map<String, String> extractFileInfo() {

@@ -103,23 +103,10 @@ public class SMTPConnectionHandler implements Runnable {
         sendLine("354 End data with: <CR><LF>.<CR><LF>");
 
         readAndAddData(mailObject);
+        mailObject.getDataBuilder().deleteCharAt(mailObject.getDataBuilder().length() - 1);
         sendLine("250 OK");
 
-        String timeWhenReceived = new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime());
-        String emailPath = parent.getStorageDirectory() + "/" + timeWhenReceived;
-
-        StringBuilder dataBuilder = mailObject.getDataBuilder().deleteCharAt(mailObject.getDataBuilder().length()-1);
-        String data = dataBuilder.toString();
-
-        Path dir = Paths.get(emailPath);
-        if (!Files.exists(dir))
-            Files.createDirectory(dir);
-
-        mailObject.saveContanedFiles(emailPath);
-        File file = new File(emailPath + "/email.eml");
-        FileWriter fileWriter = new FileWriter(file);
-        fileWriter.write(data);
-        fileWriter.close();
+        parent.getOnReceiveEmail().accept(mailObject);
 
         relayEmail(mailObject);
     }
@@ -156,8 +143,6 @@ public class SMTPConnectionHandler implements Runnable {
         writer.write("QUIT");
         writer.newLine();
         writer.flush();
-
-
 
         reader.close();
         writer.close();
