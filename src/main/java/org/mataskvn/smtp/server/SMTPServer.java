@@ -1,7 +1,11 @@
 package org.mataskvn.smtp.server;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
+import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -20,19 +24,33 @@ public class SMTPServer extends Thread
 
 
     private String storageDirectory;
+
+    public String getGreetingMessage() {
+        return greetingMessage;
+    }
+
+    public void setGreetingMessage(String greetingMessage) {
+        this.greetingMessage = greetingMessage;
+    }
+
+    private String greetingMessage = InetAddress.getLocalHost().getHostName() + " Connection Sucessful.";
     public String getStorageDirectory() {
         return storageDirectory;
     }
 
     private boolean shouldClose = false;
 
-    public SMTPServer(int port, String storageDirectory)
-    {
+    /**
+     * Construct a SMTP server
+     * @param port - the port for the server to run on
+     * @param storageDirectory - the directory for the SMTP server to store .eml and attached files (null for this directory)
+     */
+    public SMTPServer(int port, String storageDirectory) throws UnknownHostException {
         this.port = port;
-        this.storageDirectory = storageDirectory;
+        this.storageDirectory = storageDirectory == null ? "" : storageDirectory;
     }
 
-    public void startServer() throws IOException {
+    private void startServer() throws IOException {
         serverSocket = new ServerSocket(port);
         Path dir = Paths.get(storageDirectory);
         if (!Files.exists(dir))
