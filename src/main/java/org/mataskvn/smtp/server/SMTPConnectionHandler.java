@@ -108,7 +108,7 @@ public class SMTPConnectionHandler implements Runnable {
 
         parent.getOnReceiveEmail().accept(mailObject);
 
-        relayEmail(mailObject);
+//        relayEmail(mailObject);
     }
 
     private void relayEmail(MailObject mailObject) throws IOException {
@@ -214,11 +214,10 @@ public class SMTPConnectionHandler implements Runnable {
 
     private void readAndAddData(MailObject mailObject) throws IOException {
         String input = "";
-        mailObject.addData(input);
 
         while (!input.matches("(?i)^\\s*QUIT\\s?")) {
             input = reader.readLine();
-            System.out.println(input);
+//            System.out.println(input);
 
             if (input.equals("."))
                 break;

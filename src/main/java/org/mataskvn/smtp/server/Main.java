@@ -30,11 +30,11 @@ public class Main {
                         Files.createDirectory(emailDir);
 
                     // Write Attachments
-                    Map<String, String> attachments = mailObject.extractFileInfo();
+                    Map<String, byte[]> attachments = mailObject.extractFileInfo();
                     if (attachments != null)
                     {
-                        for (Map.Entry<String, String> attachment : attachments.entrySet()) {
-                            Files.write(Path.of(emailPath + "/" + attachment.getKey()), attachment.getValue().getBytes());
+                        for (Map.Entry<String, byte[]> attachment : attachments.entrySet()) {
+                            Files.write(Path.of(emailPath + "/" + attachment.getKey()), attachment.getValue());
                         }
                     }
 

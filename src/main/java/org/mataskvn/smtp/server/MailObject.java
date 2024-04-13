@@ -48,6 +48,7 @@ public class MailObject {
             data = new StringBuilder();
 
         data.append(line).append("\n");
+        System.out.println("Added data" + line);
 
         return true;
     }
@@ -57,51 +58,33 @@ public class MailObject {
     public String getData() { return data.toString(); }
 
 
-    public static void main(String[] args){
-//        MailObject mailObject = new MailObject();
-//        mailObject.addHelo("");
-//        mailObject.addSender("me");
-//        mailObject.addRecipient("you");
+    public static void main(String[] args) throws IOException {
+        MailObject mailObject = new MailObject();
+        mailObject.addHelo("");
+        mailObject.addSender("me");
+        mailObject.addRecipient("you");
 
-        BufferedWriter writer = null;
-        try {
-            if (!Files.exists(Paths.get("mail" + "/" + "aaa"))) {
-                Files.createDirectory(Paths.get("mail" + "/" + "aaa"));
-            }
-            writer = new BufferedWriter(new FileWriter(new File(
-                    "mail" + "/" + "xdddd.txt")));
-            writer.write("aaaaa");
-            writer.close();
-        } catch (IOException e) {
-            e.printStackTrace();
+
+        String line = "";
+        BufferedReader fileReader = new BufferedReader(new FileReader("multiple_files.eml"));
+        while ((line = fileReader.readLine()) != null) {
+            mailObject.addData(line);
         }
+        fileReader.close();
 
-//        String line = "";
-//        while ((line = fileReader.readLine()) != null) {
-//            mailObject.addData(line);
-//        }
-//
-//        System.out.println(mailObject.getDataBuilder().toString());
-//        mailObject.saveContanedFiles(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+        System.out.println(mailObject.getDataBuilder().toString());
 
-//        System.out.println(new String(Base64.getEncoder().encode(new String("Sveiki lūzeriaiĄĄĄĄĄĄĄĄĄĄĄ!!!!!!!").getBytes())));
-
+        Map<String, byte[]> fileInfo = mailObject.extractFileInfo();
+        for (Map.Entry<String, byte[]> entry : fileInfo.entrySet()) {
+            System.out.println(entry.getKey() + "\n" + new String(entry.getValue(), StandardCharsets.UTF_8));
+        }
     }
 
-//    public void saveContanedFiles(String directory) throws IOException{
-//
-//        Map<String, String> fileInfo = extractFileInfo();
-//        if (fileInfo == null)
-//            return;
-//        for (Map.Entry<String, String> entry : fileInfo.entrySet()) {
-//            FileWriter fileWriter = new FileWriter(new File(directory + "/" + entry.getKey()));
-//            fileWriter.write(entry.getValue());
-//            fileWriter.close();
-//        }
-//    }
-
-
-    public Map<String, String> extractFileInfo() {
+    /**
+     *
+     * @return the extracted file information in a map: Key = filename, Value = file content
+     */
+    public Map<String, byte[]> extractFileInfo() {
         String data = this.data.toString();
         // Find Boundary
         Matcher matcher = Pattern.compile("boundary=\".+\"").matcher(data);
@@ -110,17 +93,16 @@ public class MailObject {
         String boundary = "--" + data.substring(matcher.start() + "boundary=\"".length(),matcher.end()-1);
 
         // Find File Occurances
-        matcher = Pattern.compile(boundary + "\n.+\n.+\n.+[^-]+").matcher(data);
-        Map<String, String> result = new HashMap<>();
+        matcher = Pattern.compile(boundary + "\n.+\n.+\n.+\n\n([a-zA-Z0-9/+=]+\n)+").matcher(data);
+        Map<String, byte[]> result = new HashMap<>();
         while (matcher.find()) {
             String fileInfo = matcher.group();
             String filename = extractFilename(fileInfo);
             String base64EncodedContent = extractEncodedText(fileInfo);
-            String decodedContent = new String(Base64.getDecoder().decode(base64EncodedContent), StandardCharsets.UTF_8);
+            if (base64EncodedContent == null) { return null; }
+            byte[] decodedContent = Base64.getDecoder().decode(base64EncodedContent);
             result.put(filename, decodedContent);
-            System.out.println(filename + " " + decodedContent);
         }
-
 
         return result;
     }
@@ -134,9 +116,9 @@ public class MailObject {
     }
 
     public String extractEncodedText(String emlFileSubsection) {
-        Matcher matcher = Pattern.compile("Content-Transfer-Encoding: base64\n\n.*\n").matcher(emlFileSubsection);
+        Matcher matcher = Pattern.compile("Content-Transfer-Encoding: base64\n\n([a-zA-Z0-9+=/]+\n)+").matcher(emlFileSubsection);
         if (matcher.find()) {
-            return emlFileSubsection.substring(matcher.start() + "Content-Transfer-Encoding: base64\n\n".length(), matcher.end() - 1);
+            return emlFileSubsection.substring(matcher.start() + "Content-Transfer-Encoding: base64\n\n".length(), matcher.end() - 1).replace("\n", "");
         }
         return null;
     }
