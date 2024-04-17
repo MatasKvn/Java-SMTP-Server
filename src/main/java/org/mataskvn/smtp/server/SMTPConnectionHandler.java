@@ -50,6 +50,7 @@ public class SMTPConnectionHandler implements Runnable {
      * @return true - continue, false - close connection
      */
     private boolean handleInput(MailObject mailObject, String input) throws IOException{
+        if (input == null) return true;
         if (input.matches("(?i)^\\s*HELP\\s?"))
             sendLine("250 Supported commands: " + SMTPServer.SUPPORTED_COMMANDS);
 
@@ -115,13 +116,10 @@ public class SMTPConnectionHandler implements Runnable {
             DNSLookupUtil.Tuple<String, Integer> addressAndPort = DNSLookupUtil.getIpv4AddressOf(domain);
             if (addressAndPort == null)
                 continue;
-            try {
-                Socket socket = new Socket(addressAndPort.fst, addressAndPort.snd);
-                BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-            } catch (IOException e) { // Server cannot be reached
-                continue;
-            }
+
+            Socket socket = new Socket(addressAndPort.fst, addressAndPort.snd);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
 
             reader.readLine();
             writer.write("HELO " + InetAddress.getLocalHost());
