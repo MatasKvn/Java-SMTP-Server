@@ -1,17 +1,11 @@
 package org.mataskvn.smtp.server;
 
 import java.io.IOException;
-import java.io.InterruptedIOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
-import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 
 public class SMTPServer implements Runnable
@@ -45,14 +39,19 @@ public class SMTPServer implements Runnable
     private String greetingMessage = InetAddress.getLocalHost().getHostName() + " Connection Sucessful.";
 
     private boolean shouldClose = false;
+    private String domainName;
+    public String getDomainName() { return domainName; }
 
     /**
      * Construct a SMTP server
-     * @param port - the port for the server to run on
+     *
      * @param
+     * @param port - the port for the server to run on
+     * @param domainName - the domain name of this server
      */
-    public SMTPServer(int port) throws UnknownHostException {
+    public SMTPServer(int port, String domainName) throws UnknownHostException {
         this.port = port;
+        this.domainName = domainName;
     }
 
     private void init() throws IOException {

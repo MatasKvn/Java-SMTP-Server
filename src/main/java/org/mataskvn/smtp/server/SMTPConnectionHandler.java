@@ -3,11 +3,6 @@ package org.mataskvn.smtp.server;
 import java.io.*;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
 
 public class SMTPConnectionHandler implements Runnable {
     private Socket socket;
@@ -108,45 +103,62 @@ public class SMTPConnectionHandler implements Runnable {
 
         parent.getOnReceiveEmail().accept(mailObject);
 
-//        relayEmail(mailObject);
+        relayEmail(mailObject);
     }
 
     private void relayEmail(MailObject mailObject) throws IOException {
-        Socket socket = new Socket("smtp-mail.outlook.com", 587);
-        BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+        for (String email : mailObject.getRecipients()) {
+            String domain = MailObject.getUserDomain(email);
+            if (domain == null || domain.equals(parent.getDomainName()))
+                continue;
 
-        System.out.println(reader.readLine());
-        writer.write("HELO [127.0.0.1]");
-        writer.newLine();
-        writer.flush();
-        System.out.println(reader.readLine());
-        writer.write("MAIL FROM:<matas.kvainauskas@mif.stud.vu.lt>");
-        writer.newLine();
-        writer.flush();
-        System.out.println(reader.readLine());
-        writer.write("RCPT TO:<matas.kvainauskas@mif.stud.vu.lt>");
-        writer.newLine();
-        writer.flush();
-        System.out.println(reader.readLine());
-        writer.write("DATA");
-        writer.newLine();
-        writer.flush();
-        System.out.println(reader.readLine());
-        writer.write(mailObject.getDataBuilder().toString());
-        writer.newLine();
-        writer.flush();
-        writer.write(".");
-        writer.newLine();
-        writer.flush();
-        System.out.println(reader.readLine());
-        writer.write("QUIT");
-        writer.newLine();
-        writer.flush();
+            DNSLookupUtil.Tuple<String, Integer> addressAndPort = DNSLookupUtil.getIpv4AddressOf(domain);
+            if (addressAndPort == null)
+                continue;
+            try {
+                Socket socket = new Socket(addressAndPort.fst, addressAndPort.snd);
+                BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+            } catch (IOException e) { // Server cannot be reached
+                continue;
+            }
 
-        reader.close();
-        writer.close();
-        socket.close();
+            reader.readLine();
+            writer.write("HELO " + InetAddress.getLocalHost());
+            writer.newLine();
+            writer.flush();
+            reader.readLine();
+
+            writer.write("MAIL FROM:" + mailObject.getSender());
+            writer.newLine();
+            writer.flush();
+            reader.readLine();
+
+            writer.write("RCPT TO:" + email);
+            writer.newLine();
+            writer.flush();
+            reader.readLine();
+
+            writer.write("DATA");
+            writer.newLine();
+            writer.flush();
+            reader.readLine();
+
+            writer.write(mailObject.getData());
+            writer.newLine();
+            writer.write(".");
+            writer.newLine();
+            writer.flush();
+            reader.readLine();
+
+            writer.write("QUIT");
+            writer.newLine();
+            writer.flush();
+            reader.readLine();
+
+            socket.close();
+        }
+
     }
 
     private void handleRCPT(MailObject mailObject, String input) throws IOException {

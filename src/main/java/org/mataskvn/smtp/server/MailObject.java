@@ -27,6 +27,7 @@ public class MailObject {
         this.sender = sender;
         System.out.println("Added sender: " + sender);
     }
+    public String getSender() { return sender; }
 
     private List<String> recipients = null;
     public boolean hasRecipients() {
@@ -37,6 +38,9 @@ public class MailObject {
             recipients = new ArrayList<String>();
         recipients.add(recipient);
         System.out.println("Added recipient: " + recipient);
+    }
+    public List<String> getRecipients() {
+        return recipients;
     }
 
     private StringBuilder data = null;
@@ -121,6 +125,29 @@ public class MailObject {
             return emlFileSubsection.substring(matcher.start() + "Content-Transfer-Encoding: base64\n\n".length(), matcher.end() - 1).replace("\n", "");
         }
         return null;
+    }
+
+
+    public static String getUserDomain(String email) {
+        try {
+            Matcher m = Pattern.compile("@\\w+.\\w+").matcher(email);
+            m.find();
+            return m.group().substring(1);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public static String getRecipient(String email) {
+        Matcher m = Pattern.compile("<\\w+@\\w+.\\w+>").matcher(email);
+        try {
+            m.find();
+            String matchedText = m.group();
+            return matchedText.substring(1, matchedText.length()-1);
+        } catch (Exception e) {
+            return email;
+        }
+
     }
 }
 
